@@ -78,6 +78,24 @@
         </StandardDirectory>
         {%- endif %}
 
+        <StandardDirectory Id="DesktopFolder">
+            <Component Id="DesktopShortcut">
+                <Shortcut
+                    Id="DesktopShortcut1"
+                    Name="{{ cookiecutter.formal_name|xml_escape }}"
+                    Icon="ProductIcon"
+                    Description="{{ cookiecutter.description | truncate(256, False) }}"
+                    Target="[INSTALLFOLDER]{{ cookiecutter.binary_path }}" />
+                <RegistryValue
+                    Root="HKMU"
+                    Key="Software\{{ (cookiecutter.author or 'Unknown Developer')|xml_escape }}\{{ cookiecutter.formal_name|xml_escape }}"
+                    Name="desktop_shortcut_installed"
+                    Type="integer"
+                    Value="1"
+                    KeyPath="yes" />
+            </Component>
+        </StandardDirectory>
+
         {% if cookiecutter.document_types -%}
         <SetProperty
             Id="FileAssociationProperty"
@@ -126,6 +144,16 @@
             {%- endfor %}
         </Feature>
 
+        <Feature
+            Id="DesktopShortcutFeature"
+            Title="Desktop Shortcut"
+            Description="Create a shortcut on the desktop"
+            Level="1"
+        >
+            <Level Condition="DESKTOP_SHORTCUT &lt;&gt; &quot;1&quot;" Value="0" />
+            <ComponentRef Id="DesktopShortcut" />
+        </Feature>
+
         <!-- Custom user properties
 
           The OPTION_X property definition describes a value that can be set.
@@ -163,6 +191,8 @@
           The ALLUSERS variable has to have a value of "" or 1; we need a
           value of 0 or 1 for option output purposes.
           -->
+        <Property Id="DESKTOP_SHORTCUT" Value="1" />
+
         <Property Id="OPTION_ALLUSERS" Value="0"/>
         <SetProperty
             Id="OPTION_ALLUSERS"
@@ -279,7 +309,6 @@
                 Size="!(loc.Advanced_Font_Emphasized_Size)"
                 Bold="yes" />
             <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
-            {% if cookiecutter.install_options %}
             <!-- Define the custom Install Options dialog -->
             <Dialog
                 Id="InstallOptionsDlg"
@@ -327,6 +356,14 @@
                     Text="{{ option.description }}" />
                 {% endfor %}
 
+                {% set desktop_shortcut_y = 50 + (cookiecutter.install_options|length) * 46 %}
+                <Control
+                    Id="DesktopShortcutCheck"
+                    X="25" Y="{{ desktop_shortcut_y }}" Width="290" Height="15"
+                    Type="CheckBox"
+                    Property="DESKTOP_SHORTCUT"
+                    CheckBoxValue="1"
+                    Text="Create a desktop shortcut" />
                 <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="373" Height="0" />
                 <Control
                     Id="Back"
@@ -350,7 +387,6 @@
                     <Publish Event="SpawnDialog" Value="CancelDlg" />
                 </Control>
             </Dialog>
-            {% endif %}
             {% if cookiecutter.uninstall_options %}
             <!-- Define the custom Uninstall Options dialog -->
             <Dialog
@@ -499,7 +535,6 @@
                 Event="NewDialog"
                 Value="LicenseAgreementDlg" />
 
-                {% if cookiecutter.install_options %}
 
             <Publish
                 Dialog="InstallDirDlg"
@@ -527,23 +562,6 @@
                 Value="InstallOptionsDlg"
                 Order="1"
                 Condition="NOT Installed" />
-                {% else %}
-
-            <Publish
-                Dialog="InstallDirDlg"
-                Control="Next"
-                Event="NewDialog"
-                Value="VerifyReadyDlg" />
-
-            <!-- Verify -->
-            <Publish
-                Dialog="VerifyReadyDlg"
-                Control="Back"
-                Event="NewDialog"
-                Value="InstallDirDlg"
-                Order="1"
-                Condition="NOT Installed" />
-                {% endif %}
             {% else %}
             <!-- Let the user choose the scope. -->
 
@@ -640,7 +658,6 @@
                 Event="NewDialog"
                 Value="InstallScopeDlg" />
 
-                {% if cookiecutter.install_options %}
 
             <Publish
                 Dialog="InstallDirDlg"
@@ -668,23 +685,6 @@
                 Value="InstallOptionsDlg"
                 Order="1"
                 Condition="NOT Installed" />
-                {% else %}
-            <Publish
-                Dialog="InstallDirDlg"
-                Control="Next"
-                Event="NewDialog"
-                Value="VerifyReadyDlg"
-                Order="99"/>
-
-            <!-- Verify -->
-            <Publish
-                Dialog="VerifyReadyDlg"
-                Control="Back"
-                Event="NewDialog"
-                Value="InstallDirDlg"
-                Order="1"
-                Condition="NOT Installed" />
-                {% endif %}
             {% endif %}
 
             <!-- Display the BrowseDlg when the "Change" button on InstallDirDlg
