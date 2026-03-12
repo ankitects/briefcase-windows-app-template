@@ -12,6 +12,11 @@
         Scope="{{ 'perUserOrMachine' if 'User' in cookiecutter.install_scope else 'perMachine' }}">
         <!-- See scope comments below -->
 
+        <Property Id="WINDOWSBUILDNUMBER" Secure="yes">
+        <RegistrySearch Id="BuildNumberSearch" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" />
+        </Property>
+        <Launch Condition="Installed OR (VersionNT64 AND (WINDOWSBUILDNUMBER &gt;= 10240))" Message="Anki requires a 64-bit installation of Windows 10 or later." />
+
         <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
 
         <Icon Id="ProductIcon" SourceFile="icon.ico" />
