@@ -15,7 +15,7 @@
         <Property Id="WINDOWSBUILDNUMBER" Secure="yes">
         <RegistrySearch Id="BuildNumberSearch" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" />
         </Property>
-        <Launch Condition="Installed OR (VersionNT64 AND (WINDOWSBUILDNUMBER &gt;= 10240))" Message="Anki requires a 64-bit installation of Windows 10 or later." />
+        <Launch Condition="Installed OR (VersionNT64 AND (WINDOWSBUILDNUMBER &gt;= 10240))" Message="{{ formal_name }} requires a 64-bit installation of Windows 10 or later." />
 
         <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
 
@@ -293,6 +293,9 @@
         <UI>
             <!-- Include the common WixUI resources-->
             <UIRef Id="WixUI_Common" />
+
+            <DialogRef Id="FilesInUse" />
+            <DialogRef Id="MsiRMFilesInUse" />
 
             <!-- Include translations for error text (see https://stackoverflow.com/questions/44161526) -->
             <UIRef Id="WixUI_ErrorProgressText" />
