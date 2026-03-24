@@ -2,7 +2,8 @@
 {%- set author = (cookiecutter.author or 'Unknown Developer')|xml_escape %}
 {%- set description = cookiecutter.description | truncate(256, False) %}
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
     <Package
         UpgradeCode="{{ cookiecutter.guid }}"
         Name="{{ formal_name }}"
@@ -62,6 +63,28 @@
                 Directory="INSTALLFOLDER"
                 Include=".\extras\**" />
         </ComponentGroup>
+
+        <Component Id="InstallFolderPermissions"
+                Guid="{{ '.'.join(['install-folder-permissions', cookiecutter.app_name] + cookiecutter.bundle.split('.')[::-1])|dns_uuid5 }}"
+                Directory="INSTALLFOLDER"
+                Condition="ALLUSERS = 1">
+            <CreateFolder>
+                <!--
+                  If the MSI has been installed for all users, make sure that
+                  the install directory doesn't inherit permissions from the
+                  parent directory. This SDDL defines:
+
+                    D:P — Protected DACL (blocks inheritance — this is the key flag)
+                    AI — auto-inherit to children
+                    (A;OICI;FA;;;BA) — Full control for Administrators
+                    (A;OICI;FA;;;SY) — Full control for SYSTEM
+                    (A;OICI;0x1200a9;;;BU) — Read+Execute only for Built-in Users
+                  -->
+                <PermissionEx
+                    Sddl="D:PAI(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)(A;OICI;0x1200a9;;;BU)"
+                />
+            </CreateFolder>
+        </Component>
 
         {% if cookiecutter.install_launcher -%}
         <StandardDirectory Id="ProgramMenuFolder">
@@ -142,6 +165,7 @@
             Display="expand"
         >
             <ComponentGroupRef Id="{{ cookiecutter.module_name }}_COMPONENTS" />
+            <ComponentRef Id="InstallFolderPermissions" />
 
             {% if cookiecutter.install_launcher -%}
             <ComponentRef Id="ApplicationShortcuts" />
@@ -789,11 +813,13 @@
 
         {% if cookiecutter.post_install_script %}
         <!-- Post-install and Pre-uninstall scripts -->
+        <!-- Execute="deferred" runs in server process where Impersonate="no" takes effect -->
+        <!-- This ensures scripts run with elevated privileges for per-machine installs -->
         <CustomAction
             Id="PostInstallAction"
             Directory="INSTALLFOLDER"
             ExeCommand="[SystemFolder]cmd.exe /c &quot;&quot;[INSTALLFOLDER]{{ cookiecutter.installer_path }}\run_post_install.bat&quot; [OPTION_ALLUSERS] &quot;[OriginalDatabase]&quot;{% for name in cookiecutter.install_options %} [OPTION_{{ name.upper() }}]{% endfor %}&quot;"
-            Execute="immediate"
+            Execute="deferred"
             Return="check"
             Impersonate="no"/>
         {% endif %}
@@ -802,13 +828,13 @@
             Id="PreUninstallAction"
             Directory="INSTALLFOLDER"
             ExeCommand="[SystemFolder]cmd.exe /c &quot;&quot;[INSTALLFOLDER]{{ cookiecutter.installer_path }}\run_pre_uninstall.bat&quot;{% for name in cookiecutter.uninstall_options %} [OPTION_{{ name.upper() }}]{% endfor %}&quot;"
-            Execute="immediate"
+            Execute="deferred"
             Return="check"
             Impersonate="no"/>
         {% endif %}
         <InstallExecuteSequence>
         {% if cookiecutter.post_install_script %}
-            <Custom Action="PostInstallAction" After="InstallFinalize" Condition="NOT Installed" />
+            <Custom Action="PostInstallAction" Before="InstallFinalize" Condition="NOT Installed" />
         {% endif %}
         {% if cookiecutter.pre_uninstall_script %}
             <Custom Action="PreUninstallAction" After="InstallInitialize" Condition='REMOVE="ALL"'/>
