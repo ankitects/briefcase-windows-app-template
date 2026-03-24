@@ -16,7 +16,7 @@
         <Property Id="WINDOWSBUILDNUMBER" Secure="yes">
         <RegistrySearch Id="BuildNumberSearch" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" />
         </Property>
-        <Launch Condition="Installed OR (VersionNT64 AND (WINDOWSBUILDNUMBER &gt;= 10240))" Message="{{ formal_name }} requires a 64-bit installation of Windows 10 or later." />
+        <Launch Condition="Installed OR (VersionNT64 AND (WINDOWSBUILDNUMBER &gt;= 17763))" Message="{{ formal_name }} requires a 64-bit installation of Windows 10 version 1809 or later." />
 
         <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
 
