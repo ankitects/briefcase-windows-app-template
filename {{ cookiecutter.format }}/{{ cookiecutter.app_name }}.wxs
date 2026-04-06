@@ -18,6 +18,10 @@
         </Property>
         <Launch Condition="Installed OR (VersionNT64 AND (WINDOWSBUILDNUMBER &gt;= 17763))" Message="{{ formal_name }} requires a 64-bit installation of Windows 10 version 1809 or later." />
 
+        <Property Id="OLD_ANKI_INSTALL_DIR" Secure="yes">
+            <RegistrySearch Id="OldAnkiSearch" Root="HKCU" Key="Software\Anki" Name="Install_Dir64" Type="raw" />
+        </Property>
+
         <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
 
         <Icon Id="ProductIcon" SourceFile="icon.ico" />
@@ -811,6 +815,14 @@
                 Order="99" />
         </UI>
 
+        <!-- Uninstall old Anki (NSIS-based) -->
+        <CustomAction
+            Id="uninstallOldAnki"
+            Directory="TARGETDIR"
+            ExeCommand="[SystemFolder]cmd.exe /c &quot;set ANKI_LAUNCHER=1 &amp;&amp; &quot;&quot;[OLD_ANKI_INSTALL_DIR]\uninstall.exe&quot;&quot; /S&quot;"
+            Execute="immediate"
+            Return="check" />
+
         {% if cookiecutter.post_install_script %}
         <!-- Post-install and Pre-uninstall scripts -->
         <!-- Execute="deferred" runs in server process where Impersonate="no" takes effect -->
@@ -833,6 +845,7 @@
             Impersonate="no"/>
         {% endif %}
         <InstallExecuteSequence>
+            <Custom Action="uninstallOldAnki" Before="InstallInitialize" Condition="OLD_ANKI_INSTALL_DIR AND NOT Installed AND NOT REMOVE" />
         {% if cookiecutter.post_install_script %}
             <Custom Action="PostInstallAction" Before="InstallFinalize" Condition="NOT Installed" />
         {% endif %}
