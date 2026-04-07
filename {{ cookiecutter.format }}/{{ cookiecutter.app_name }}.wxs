@@ -142,17 +142,30 @@
             Value="[INSTALLFOLDER]{{ cookiecutter.binary_path }}"
             After="CostFinalize" />
 
+        <Component
+            Id="FileAssocIcon"
+            Directory="INSTALLFOLDER">
+            <File
+                Id="FileAssocIconFile"
+                Source="icon.ico"
+                KeyPath="yes" />
+        </Component>
+
         {% for document_type_id, document_type in cookiecutter.document_types|dictsort -%}
         <Component
             Id="FileAssociation.{{ document_type_id }}"
             Directory="INSTALLFOLDER">
-            <File
-                Id="ProductIcon.{{ document_type_id|xml_escape }}"
-                Source="{{ cookiecutter.app_name }}-{{ document_type_id|xml_escape }}.ico" />
+            <RegistryValue
+                Root="HKMU"
+                Key="Software\{{ author }}\{{ formal_name }}"
+                Name="FileAssociation.{{ document_type_id|xml_escape }}"
+                Type="integer"
+                Value="1"
+                KeyPath="yes" />
             <ProgId
                 Id="{{ cookiecutter.bundle }}.{{ cookiecutter.app_name }}.{{ document_type_id|xml_escape }}"
                 Description="{{ document_type.description|xml_escape }}"
-                Icon="ProductIcon.{{ document_type_id }}">
+                Icon="FileAssocIconFile">
                 <Extension
                     Id="{{ document_type.extension }}"
                     ContentType="{% if document_type.get('mime_type') %}{{ document_type.mime_type|xml_escape }}{% else %}application/x-{{ cookiecutter.app_name }}-{{ document_type_id }}{% endif %}">
@@ -180,6 +193,9 @@
             <ComponentRef Id="ApplicationShortcuts" />
             {%- endif %}
 
+            {%- if cookiecutter.document_types %}
+            <ComponentRef Id="FileAssocIcon" />
+            {%- endif %}
             {%- for document_type_id in cookiecutter.document_types.keys()|sort %}
             <ComponentRef Id="FileAssociation.{{ document_type_id }}" />
             {%- endfor %}
