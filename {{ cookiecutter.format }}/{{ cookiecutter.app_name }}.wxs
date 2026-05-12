@@ -28,7 +28,7 @@
             <RegistrySearch Id="OldAnkiSearchHKLM" Root="HKLM" Key="Software\WOW6432Node\Anki" Name="Install_Dir64" Type="raw" />
         </Property>
 
-        <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
+        <Media Id="1" Cabinet="product.cab" EmbedCab="yes" CompressionLevel="high" />
 
         <Icon Id="ProductIcon" SourceFile="icon.ico" />
 
