@@ -859,7 +859,7 @@
         <CustomAction
             Id="uninstallOldAnki"
             Directory="TARGETDIR"
-            ExeCommand="[SystemFolder]cmd.exe /c &quot;set ANKI_LAUNCHER=1 &amp;&amp; &quot;[OLD_ANKI_INSTALL_DIR]\uninstall.exe&quot; /S&quot;"
+            ExeCommand="[SystemFolder]cmd.exe /c &quot;if exist &quot;[OLD_ANKI_INSTALL_DIR]\uninstall.exe&quot; (set ANKI_LAUNCHER=1 &amp;&amp; &quot;[OLD_ANKI_INSTALL_DIR]\uninstall.exe&quot; /S)&quot;"
             Execute="immediate"
             Return="check" />
 
