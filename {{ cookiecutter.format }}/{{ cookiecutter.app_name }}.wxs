@@ -19,7 +19,7 @@
         <RegistrySearch Id="BuildNumberSearch" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" />
         </Property>
         <Launch Condition="Installed OR (VersionNT64 AND (WINDOWSBUILDNUMBER &gt;= 17763))" Message="{{ formal_name }} requires a 64-bit installation of Windows 10 version 1809 or later." />
-        <Launch Condition="Installed OR NOT OLD_ANKI_INSTALL_DIR_HKLM" Message="A previous Anki version needs to be uninstalled first. After uninstallation completes, please run this installer again." />
+        <Launch Condition="Installed OR NOT OLD_ANKI_HKLM_DIR_EXISTS" Message="A previous Anki version needs to be uninstalled first. After uninstallation completes, please run this installer again." />
 
         <Property Id="OLD_ANKI_INSTALL_DIR" Secure="yes">
             <RegistrySearch Id="OldAnkiSearch" Root="HKCU" Key="Software\Anki" Name="Install_Dir64" Type="raw" />
@@ -27,6 +27,12 @@
 
         <Property Id="OLD_ANKI_INSTALL_DIR_HKLM" Secure="yes">
             <RegistrySearch Id="OldAnkiSearchHKLM" Root="HKLM" Key="Software\WOW6432Node\Anki" Name="Install_Dir64" Type="raw" />
+        </Property>
+
+        <Property Id="OLD_ANKI_HKLM_DIR_EXISTS" Secure="yes">
+            <DirectorySearch Id="OldAnkiDirSearchHKLM" Path="[OLD_ANKI_INSTALL_DIR_HKLM]" Depth="0">
+                <FileSearch Id="OldAnkiUninstallerSearchHKLM" Name="uninstall.exe" />
+            </DirectorySearch>
         </Property>
 
         <Media Id="1" Cabinet="product.cab" EmbedCab="yes" CompressionLevel="high" />
