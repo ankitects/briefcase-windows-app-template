@@ -14,7 +14,6 @@
         Scope="{{ 'perUserOrMachine' if 'User' in cookiecutter.install_scope else 'perMachine' }}">
         <!-- See scope comments below -->
 
-        <MajorUpgrade AllowDowngrades="yes" Schedule="afterInstallInitialize"/>
         <Property Id="WINDOWSBUILDNUMBER" Secure="yes">
         <RegistrySearch Id="BuildNumberSearch" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" />
         </Property>
