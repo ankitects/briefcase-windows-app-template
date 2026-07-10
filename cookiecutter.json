@@ -16,6 +16,7 @@
   "package_path": "C:\\path\\to\\content",
   "binary_path": "{{ cookiecutter.formal_name }}.exe",
   "install_launcher": true,
+  "create_desktop_shortcut": false,
   "document_types": "",
   "dotnet_version": "",
   "dotnet_runtime_type": "{{ 'Core' if cookiecutter.console_app else 'Desktop' }}",
@@ -33,6 +34,7 @@
   "host_arch": "AMD64",
   "vscode_platform": "{{ 'ARM64' if cookiecutter.host_arch == 'ARM64' else 'x64' }}",
   "compression_level": "high",
+  "min_os_version": "10240",
   "_extensions": [
     "briefcase.integrations.cookiecutter.PythonVersionExtension",
     "briefcase.integrations.cookiecutter.UUIDExtension",

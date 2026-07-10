@@ -14,10 +14,6 @@
         Scope="{{ 'perUserOrMachine' if 'User' in cookiecutter.install_scope else 'perMachine' }}">
         <!-- See scope comments below -->
 
-        <Property Id="WINDOWSBUILDNUMBER" Secure="yes">
-        <RegistrySearch Id="BuildNumberSearch" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" />
-        </Property>
-        <Launch Condition="Installed OR (VersionNT64 AND (WINDOWSBUILDNUMBER &gt;= 17763))" Message="{{ formal_name }} requires a 64-bit installation of Windows 10 version 1809 or later." />
         <Launch Condition="Installed OR NOT OLD_ANKI_HKLM_DIR_EXISTS" Message="A previous Anki version needs to be uninstalled first. After uninstallation completes, please run this installer again." />
 
         <Property Id="OLD_ANKI_INSTALL_DIR" Secure="yes">
@@ -35,6 +31,11 @@
         </Property>
 
         <Media Id="1" Cabinet="product.cab" EmbedCab="yes" CompressionLevel="{{ cookiecutter.compression_level }}" />
+
+        <MajorUpgrade
+            DowngradeErrorMessage="A newer version of [ProductName] is already installed."
+            AllowSameVersionUpgrades="yes"
+            Schedule="afterInstallInitialize" />
 
         <Icon Id="ProductIcon" SourceFile="icon.ico" />
 
@@ -58,11 +59,20 @@
         override that with our own definition to avoid confusion. -->
         <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
 
+        {% if cookiecutter.min_os_version %}
+        <Property Id="WINDOWSBUILDNUMBER" Secure="yes">
+            <RegistrySearch Id="BuildNumberSearch" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" />
+        </Property>
+        <Launch
+            Condition="Installed OR (VersionNT64 AND (WINDOWSBUILDNUMBER &gt;= {{ cookiecutter.min_os_version }}))"
+            Message="This application requires Windows build {{ cookiecutter.min_os_version }} or later." />
+        {% endif %}
+
         {% if cookiecutter.dotnet_version %}
         <netfx:DotNetCompatibilityCheck
             Property="DOTNETRUNTIMECHECK"
             RollForward="{{ cookiecutter.dotnet_rollforward }}"
-            RuntimeType="{{ cookiecutter.dotnet_runtime_type }}"
+            RuntimeType="{{ cookiecutter.dotnet_runtime_type.lower() }}"
             Platform="{{ cookiecutter.vscode_platform }}"
             Version="{{ cookiecutter.dotnet_version }}" />
 
@@ -149,7 +159,7 @@
                 <RegistryValue
                     Root="HKMU"
                     Key="Software\{{ author }}\{{ formal_name }}"
-                    Name="desktop_shortcut_installed"
+                    Name="DesktopShortcut"
                     Type="integer"
                     Value="1"
                     KeyPath="yes" />
@@ -225,9 +235,8 @@
             Id="DesktopShortcutFeature"
             Title="Desktop Shortcut"
             Description="Create a shortcut on the desktop"
-            Level="1"
+            Display="hidden"
         >
-            <Level Condition="DESKTOP_SHORTCUT &lt;&gt; &quot;1&quot;" Value="0" />
             <ComponentRef Id="DesktopShortcut" />
         </Feature>
 
@@ -264,12 +273,12 @@
             Condition="OPTION_{{ name.upper() }} &lt;&gt; &quot;1&quot;" />
         {% endfor %}
 
+        <Property Id="DESKTOP_SHORTCUT" Secure="yes"{% if cookiecutter.create_desktop_shortcut %} Value="1"{% endif %} />
+
         <!--
           The ALLUSERS variable has to have a value of "" or 1; we need a
           value of 0 or 1 for option output purposes.
           -->
-        <Property Id="DESKTOP_SHORTCUT" Value="1" />
-
         <Property Id="OPTION_ALLUSERS" Value="0"/>
         <SetProperty
             Id="OPTION_ALLUSERS"
@@ -277,6 +286,17 @@
             After="CostFinalize"
             Sequence="execute"
             Condition="ALLUSERS = 1" />
+
+        <!--
+          If the installer is running in "quiet" mode (UILevel < 3), it must be treated as unattended.
+          -->
+        <Property Id="INSTALL_UNATTENDED" Value="0"/>
+        <SetProperty
+            Id="INSTALL_UNATTENDED"
+            Value="1"
+            After="CostFinalize"
+            Sequence="execute"
+            Condition="UILevel &lt; 3" />
 
         {% if cookiecutter.console_app %}
         <!-- If a Level evaluates to 0 at the start of either the UI or the execution
@@ -367,11 +387,12 @@
             <!-- Include the common WixUI resources-->
             <UIRef Id="WixUI_Common" />
 
-            <DialogRef Id="FilesInUse" />
-            <DialogRef Id="MsiRMFilesInUse" />
-
             <!-- Include translations for error text (see https://stackoverflow.com/questions/44161526) -->
             <UIRef Id="WixUI_ErrorProgressText" />
+
+            <!-- Prompt to close apps locking files (see https://stackoverflow.com/a/710685) -->
+            <DialogRef Id="FilesInUse" />
+            <DialogRef Id="MsiRMFilesInUse" />
 
             <!-- Include all TextStyles from WixUI_Advanced -->
             <TextStyle
@@ -393,6 +414,91 @@
                 Size="!(loc.Advanced_Font_Emphasized_Size)"
                 Bold="yes" />
             <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+
+            <!-- Define a custom InstallDirDlg so we can add a "Disk Usage" button
+                 to the bottom button row. The layout is otherwise identical to
+                 the standard InstallDirDlg -->
+            <Dialog
+                Id="CustomInstallDirDlg"
+                Width="370" Height="270"
+                Title="!(loc.InstallDirDlg_Title)">
+
+                <Control
+                    Id="BannerBitmap"
+                    Type="Bitmap"
+                    X="0" Y="0" Width="370" Height="44"
+                    TabSkip="no"
+                    Text="!(loc.InstallDirDlgBannerBitmap)" />
+                <Control
+                    Id="Title"
+                    Type="Text"
+                    X="15" Y="6" Width="200" Height="15"
+                    Transparent="yes"
+                    NoPrefix="yes"
+                    Text="!(loc.InstallDirDlgTitle)" />
+                <Control
+                    Id="Description"
+                    Type="Text"
+                    X="25" Y="23" Width="280" Height="15"
+                    Transparent="yes"
+                    NoPrefix="yes"
+                    Text="!(loc.InstallDirDlgDescription)" />
+                <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="373" Height="0" />
+
+                <Control
+                    Id="FolderLabel"
+                    Type="Text"
+                    X="20" Y="60" Width="290" Height="30"
+                    NoPrefix="yes"
+                    Text="!(loc.InstallDirDlgFolderLabel)" />
+                <Control
+                    Id="Folder"
+                    Type="PathEdit"
+                    X="20" Y="100" Width="320" Height="18"
+                    Property="WIXUI_INSTALLDIR"
+                    Indirect="yes" />
+                <Control
+                    Id="ChangeFolder"
+                    Type="PushButton"
+                    X="20" Y="120" Width="56" Height="17"
+                    Text="!(loc.InstallDirDlgChange)" />
+
+                <Control
+                    Id="DesktopShortcutCheck"
+                    X="20" Y="160" Width="290" Height="15"
+                    Type="CheckBox"
+                    Property="DESKTOP_SHORTCUT"
+                    CheckBoxValue="1"
+                    Text="Create a desktop shortcut" />
+
+                <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="373" Height="0" />
+                <Control
+                    Id="DiskUsage"
+                    Type="PushButton"
+                    X="112" Y="243" Width="56" Height="17"
+                    Text="Disk &amp;Usage" />
+                <Control
+                    Id="Back"
+                    Type="PushButton"
+                    X="180" Y="243" Width="56" Height="17"
+                    Text="!(loc.WixUIBack)" />
+                <Control
+                    Id="Next"
+                    Type="PushButton"
+                    X="236" Y="243" Width="56" Height="17"
+                    Default="yes"
+                    Text="!(loc.WixUINext)" />
+                <Control
+                    Id="Cancel"
+                    Type="PushButton"
+                    X="304" Y="243" Width="56" Height="17"
+                    Cancel="yes"
+                    Text="!(loc.WixUICancel)">
+                    <Publish Event="SpawnDialog" Value="CancelDlg" />
+                </Control>
+            </Dialog>
+
+            {% if cookiecutter.install_options %}
             <!-- Define the custom Install Options dialog -->
             <Dialog
                 Id="InstallOptionsDlg"
@@ -440,14 +546,6 @@
                     Text="{{ option.description }}" />
                 {% endfor %}
 
-                {% set desktop_shortcut_y = 50 + (cookiecutter.install_options|length) * 46 %}
-                <Control
-                    Id="DesktopShortcutCheck"
-                    X="25" Y="{{ desktop_shortcut_y }}" Width="290" Height="15"
-                    Type="CheckBox"
-                    Property="DESKTOP_SHORTCUT"
-                    CheckBoxValue="1"
-                    Text="Create a desktop shortcut" />
                 <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="373" Height="0" />
                 <Control
                     Id="Back"
@@ -471,6 +569,7 @@
                     <Publish Event="SpawnDialog" Value="CancelDlg" />
                 </Control>
             </Dialog>
+            {% endif %}
             {% if cookiecutter.uninstall_options %}
             <!-- Define the custom Uninstall Options dialog -->
             <Dialog
@@ -609,29 +708,31 @@
                 Dialog="LicenseAgreementDlg"
                 Control="Next"
                 Event="NewDialog"
-                Value="InstallDirDlg"
+                Value="CustomInstallDirDlg"
                 Condition='LicenseAccepted = "1"'/>
 
             <!-- Install Dir -->
             <Publish
-                Dialog="InstallDirDlg"
+                Dialog="CustomInstallDirDlg"
                 Control="Back"
                 Event="NewDialog"
                 Value="LicenseAgreementDlg" />
 
+                {% if cookiecutter.install_options %}
 
             <Publish
-                Dialog="InstallDirDlg"
+                Dialog="CustomInstallDirDlg"
                 Control="Next"
                 Event="NewDialog"
-                Value="InstallOptionsDlg" />
+                Value="InstallOptionsDlg"
+                Order="99"/>
 
             <!-- Install Options -->
             <Publish
                 Dialog="InstallOptionsDlg"
                 Control="Back"
                 Event="NewDialog"
-                Value="InstallDirDlg" />
+                Value="CustomInstallDirDlg" />
             <Publish
                 Dialog="InstallOptionsDlg"
                 Control="Next"
@@ -646,6 +747,24 @@
                 Value="InstallOptionsDlg"
                 Order="1"
                 Condition="NOT Installed" />
+                {% else %}
+
+            <Publish
+                Dialog="CustomInstallDirDlg"
+                Control="Next"
+                Event="NewDialog"
+                Value="VerifyReadyDlg"
+                Order="99"/>
+
+            <!-- Verify -->
+            <Publish
+                Dialog="VerifyReadyDlg"
+                Control="Back"
+                Event="NewDialog"
+                Value="CustomInstallDirDlg"
+                Order="1"
+                Condition="NOT Installed" />
+                {% endif %}
             {% else %}
             <!-- Let the user choose the scope. -->
 
@@ -732,29 +851,31 @@
                 Dialog="InstallScopeDlg"
                 Control="Next"
                 Event="NewDialog"
-                Value="InstallDirDlg"
+                Value="CustomInstallDirDlg"
                 Order="99"/>
 
             <!-- Install Dir -->
             <Publish
-                Dialog="InstallDirDlg"
+                Dialog="CustomInstallDirDlg"
                 Control="Back"
                 Event="NewDialog"
                 Value="InstallScopeDlg" />
 
+                {% if cookiecutter.install_options %}
 
             <Publish
-                Dialog="InstallDirDlg"
+                Dialog="CustomInstallDirDlg"
                 Control="Next"
                 Event="NewDialog"
-                Value="InstallOptionsDlg" />
+                Value="InstallOptionsDlg"
+                Order="99"/>
 
             <!-- Install Options -->
             <Publish
                 Dialog="InstallOptionsDlg"
                 Control="Back"
                 Event="NewDialog"
-                Value="InstallDirDlg" />
+                Value="CustomInstallDirDlg" />
             <Publish
                 Dialog="InstallOptionsDlg"
                 Control="Next"
@@ -769,23 +890,62 @@
                 Value="InstallOptionsDlg"
                 Order="1"
                 Condition="NOT Installed" />
+                {% else %}
+            <Publish
+                Dialog="CustomInstallDirDlg"
+                Control="Next"
+                Event="NewDialog"
+                Value="VerifyReadyDlg"
+                Order="99"/>
+
+            <!-- Verify -->
+            <Publish
+                Dialog="VerifyReadyDlg"
+                Control="Back"
+                Event="NewDialog"
+                Value="CustomInstallDirDlg"
+                Order="1"
+                Condition="NOT Installed" />
+                {% endif %}
             {% endif %}
 
             <!-- Display the BrowseDlg when the "Change" button on InstallDirDlg
             is pressed. -->
             <Publish
-                Dialog="InstallDirDlg"
+                Dialog="CustomInstallDirDlg"
                 Control="ChangeFolder"
                 Event="[_BrowseProperty]"
                 Value="[WIXUI_INSTALLDIR]"
                 Order="1"/>
             <Publish
-                Dialog="InstallDirDlg"
+                Dialog="CustomInstallDirDlg"
                 Control="ChangeFolder"
                 Event="SpawnDialog"
                 Value="BrowseDlg"
                 Order="2"/>
+            <!-- Display the standard DiskCostDlg (provided by WixUI_Common)
+            when the "Disk Usage" button on CustomInstallDirDlg is pressed. -->
+            <Publish
+                Dialog="CustomInstallDirDlg"
+                Control="DiskUsage"
+                Event="SpawnDialog"
+                Value="DiskCostDlg" />
 
+            <!-- Desktop shortcut -->
+            <Publish
+                Dialog="CustomInstallDirDlg"
+                Control="Next"
+                Order="1"
+                Condition='DESKTOP_SHORTCUT = "1"'
+                Event="AddLocal"
+                Value="DesktopShortcutFeature" />
+            <Publish
+                Dialog="CustomInstallDirDlg"
+                Control="Next"
+                Order="2"
+                Condition='DESKTOP_SHORTCUT &lt;&gt; "1"'
+                Event="Remove"
+                Value="DesktopShortcutFeature" />
 
             <!-- Define the workflow through the uninstall dialogs.
 
@@ -872,19 +1032,60 @@
         <!-- Post-install and Pre-uninstall scripts -->
         <!-- Execute="deferred" runs in server process where Impersonate="no" takes effect -->
         <!-- This ensures scripts run with elevated privileges for per-machine installs -->
+        <SetProperty
+            Id="POST_INSTALL_CMD"
+            Value="&quot;[SystemFolder]cmd.exe&quot; /c &quot;&quot;[INSTALLFOLDER]{{ cookiecutter.installer_path }}\run_post_install.bat&quot; [OPTION_ALLUSERS] &quot;[OriginalDatabase]&quot; [INSTALL_UNATTENDED]{% for name in cookiecutter.install_options %} [OPTION_{{ name.upper() }}]{% endfor %}&quot;"
+            After="CostFinalize"
+            Sequence="execute"
+            Condition="NOT Installed" />
+
         <CustomAction
-            Id="PostInstallAction"
+            Id="PostInstallActionInteractive"
             Directory="INSTALLFOLDER"
-            ExeCommand="[SystemFolder]cmd.exe /c &quot;&quot;[INSTALLFOLDER]{{ cookiecutter.installer_path }}\run_post_install.bat&quot; [OPTION_ALLUSERS] &quot;[OriginalDatabase]&quot;{% for name in cookiecutter.install_options %} [OPTION_{{ name.upper() }}]{% endfor %}&quot;"
+            ExeCommand="[POST_INSTALL_CMD]"
+            Execute="deferred"
+            Return="check"
+            Impersonate="no"/>
+
+        <CustomAction
+            Id="SetPostInstallQuietCmd"
+            Property="PostInstallActionQuiet"
+            Value="[POST_INSTALL_CMD]"
+            Execute="immediate"/>
+
+        <CustomAction
+            Id="PostInstallActionQuiet"
+            BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+            DllEntry="WixQuietExec"
             Execute="deferred"
             Return="check"
             Impersonate="no"/>
         {% endif %}
         {% if cookiecutter.pre_uninstall_script %}
+        <SetProperty
+            Id="PRE_UNINSTALL_CMD"
+            Value="&quot;[SystemFolder]cmd.exe&quot;  /c &quot;&quot;[INSTALLFOLDER]{{ cookiecutter.installer_path }}\run_pre_uninstall.bat&quot; [INSTALL_UNATTENDED]{% for name in cookiecutter.uninstall_options %} [OPTION_{{ name.upper() }}]{% endfor %}&quot;"
+            After="CostFinalize"
+            Sequence="execute"
+            Condition='REMOVE="ALL"' />
+
         <CustomAction
-            Id="PreUninstallAction"
+            Id="PreUninstallActionInteractive"
             Directory="INSTALLFOLDER"
-            ExeCommand="[SystemFolder]cmd.exe /c &quot;&quot;[INSTALLFOLDER]{{ cookiecutter.installer_path }}\run_pre_uninstall.bat&quot;{% for name in cookiecutter.uninstall_options %} [OPTION_{{ name.upper() }}]{% endfor %}&quot;"
+            ExeCommand="[PRE_UNINSTALL_CMD]"
+            Execute="deferred"
+            Return="check"
+            Impersonate="no"/>
+
+        <CustomAction
+            Id="SetPreUninstallQuietCmd"
+            Property="PreUninstallActionQuiet"
+            Value="[PRE_UNINSTALL_CMD]"
+            Execute="immediate"/>
+        <CustomAction
+            Id="PreUninstallActionQuiet"
+            BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
+            DllEntry="WixQuietExec"
             Execute="deferred"
             Return="check"
             Impersonate="no"/>
@@ -892,10 +1093,20 @@
         <InstallExecuteSequence>
             <Custom Action="uninstallOldAnki" Before="InstallInitialize" Condition="OLD_ANKI_INSTALL_DIR AND NOT Installed AND NOT REMOVE" />
         {% if cookiecutter.post_install_script %}
-            <Custom Action="PostInstallAction" Before="InstallFinalize" Condition="NOT Installed" />
+            <!-- Interactive install -->
+            <Custom Action="PostInstallActionInteractive" Before="InstallFinalize" Condition='NOT Installed AND INSTALL_UNATTENDED = "0"' />
+
+            <!-- Quiet install -->
+            <Custom Action="SetPostInstallQuietCmd" Before="PostInstallActionQuiet" Condition='NOT Installed AND INSTALL_UNATTENDED = "1"' />
+            <Custom Action="PostInstallActionQuiet" Before="InstallFinalize" Condition='NOT Installed AND INSTALL_UNATTENDED = "1"' />
         {% endif %}
         {% if cookiecutter.pre_uninstall_script %}
-            <Custom Action="PreUninstallAction" After="InstallInitialize" Condition='REMOVE="ALL"'/>
+            <!-- Interactive uninstall -->
+            <Custom Action="PreUninstallActionInteractive" After="InstallInitialize" Condition='REMOVE="ALL" AND INSTALL_UNATTENDED = "0"' />
+
+            <!-- Quiet uninstall -->
+            <Custom Action="SetPreUninstallQuietCmd" Before="PreUninstallActionQuiet" Condition='REMOVE="ALL" AND INSTALL_UNATTENDED = "1"' />
+            <Custom Action="PreUninstallActionQuiet" After="InstallInitialize" Condition='REMOVE="ALL" AND INSTALL_UNATTENDED = "1"' />
         {% endif %}
         </InstallExecuteSequence>
     </Package>
