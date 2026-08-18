@@ -20,14 +20,12 @@
             <RegistrySearch Id="OldAnkiSearch" Root="HKCU" Key="Software\Anki" Name="Install_Dir64" Type="raw" />
         </Property>
 
-        <Property Id="OLD_ANKI_INSTALL_DIR_HKLM" Secure="yes">
-            <RegistrySearch Id="OldAnkiSearchHKLM" Root="HKLM" Key="Software\WOW6432Node\Anki" Name="Install_Dir64" Type="raw" />
-        </Property>
-
-        <Property Id="OLD_ANKI_HKLM_DIR_EXISTS" Secure="yes">
-            <DirectorySearch Id="OldAnkiDirSearchHKLM" Path="[OLD_ANKI_INSTALL_DIR_HKLM]" Depth="0">
-                <FileSearch Id="OldAnkiUninstallerSearchHKLM" Name="uninstall.exe" />
-            </DirectorySearch>
+        <Property Id="OLD_ANKI_HKLM_UNINSTALLER" Secure="yes">
+            <RegistrySearch
+                Id="OldAnkiSearchHKLM" Root="HKLM" Key="Software\WOW6432Node\Anki"
+                Name="Install_Dir64" Type="directory">
+            <FileSearch Id="OldAnkiUninstallerSearchHKLM" Name="uninstall.exe" />
+            </RegistrySearch>
         </Property>
 
         <Media Id="1" Cabinet="product.cab" EmbedCab="yes" CompressionLevel="{{ cookiecutter.compression_level }}" />
