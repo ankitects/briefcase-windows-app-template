@@ -1,6 +1,6 @@
 {%- set formal_name = cookiecutter.formal_name|xml_escape %}
 {%- set author = (cookiecutter.author or 'Unknown Developer')|xml_escape %}
-{%- set description = cookiecutter.description | truncate(256, False) %}
+{%- set description = cookiecutter.description | truncate(256, leeway=0) %}
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
      xmlns:netfx="http://wixtoolset.org/schemas/v4/wxs/netfx"
@@ -146,6 +146,7 @@
         </StandardDirectory>
         {%- endif %}
 
+        {% if cookiecutter.create_desktop_shortcut != "" -%}
         <StandardDirectory Id="DesktopFolder">
             <Component Id="DesktopShortcut">
                 <Shortcut
@@ -163,6 +164,7 @@
                     KeyPath="yes" />
             </Component>
         </StandardDirectory>
+        {%- endif %}
 
         {% if cookiecutter.document_types -%}
         <SetProperty
@@ -229,6 +231,7 @@
             {%- endfor %}
         </Feature>
 
+        {% if cookiecutter.create_desktop_shortcut != "" -%}
         <Feature
             Id="DesktopShortcutFeature"
             Title="Desktop Shortcut"
@@ -237,6 +240,7 @@
         >
             <ComponentRef Id="DesktopShortcut" />
         </Feature>
+        {%- endif %}
 
         <!-- Custom user properties
 
@@ -271,7 +275,9 @@
             Condition="OPTION_{{ name.upper() }} &lt;&gt; &quot;1&quot;" />
         {% endfor %}
 
+        {% if cookiecutter.create_desktop_shortcut != "" -%}
         <Property Id="DESKTOP_SHORTCUT" Secure="yes"{% if cookiecutter.create_desktop_shortcut %} Value="1"{% endif %} />
+        {%- endif %}
 
         <!--
           The ALLUSERS variable has to have a value of "" or 1; we need a
@@ -364,6 +370,15 @@
         some pre-defined UI flows such as WixUI_Advanced, but they don't allow much
         customization, and they have some bugs, e.g.
         https://github.com/wixtoolset/issues/issues/5908. -->
+
+        <!-- Ensure the dialog titles reflect whether this is an install or uninstall -->
+        <Property Id="DIALOG_TITLE" Value="Installation" />
+        <SetProperty
+            Id="DIALOG_TITLE"
+            Value="Uninstallation"
+            Sequence="first"
+            Before="AppSearch"
+            Condition="Installed" />
 
         <!-- Enable the radio buttons in InstallScopeDlg, and set the default value -->
         <WixVariable Id="WixUISupportPerUser" Value="1" />
@@ -461,6 +476,7 @@
                     X="20" Y="120" Width="56" Height="17"
                     Text="!(loc.InstallDirDlgChange)" />
 
+                {% if cookiecutter.create_desktop_shortcut != "" -%}
                 <Control
                     Id="DesktopShortcutCheck"
                     X="20" Y="160" Width="290" Height="15"
@@ -468,6 +484,7 @@
                     Property="DESKTOP_SHORTCUT"
                     CheckBoxValue="1"
                     Text="Create a desktop shortcut" />
+                {%- endif %}
 
                 <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="373" Height="0" />
                 <Control
@@ -501,7 +518,7 @@
             <Dialog
                 Id="InstallOptionsDlg"
                 Width="370" Height="270"
-                Title="Install options"
+                Title="!(loc.CustomizeDlg_Title)"
                 TrackDiskSpace="no"
             >
 
@@ -517,7 +534,7 @@
                     X="15" Y="6" Width="210" Height="15"
                     Transparent="yes"
                     NoPrefix="yes"
-                    Text="!(loc.CustomizeDlgTitle)" />
+                    Text="{\WixUI_Font_Title}Customize Install" />
                 <Control
                     Id="Description"
                     Type="Text"
@@ -536,11 +553,25 @@
                     Type="CheckBox"
                     Property="OPTION_{{ name.upper() }}"
                     CheckBoxValue="1"
+                    {% if option.system == true -%}
+                    HideCondition="NOT ALLUSERS"
+                    ShowCondition="ALLUSERS"
+                    {% elif option.system == false -%}
+                    HideCondition="ALLUSERS"
+                    ShowCondition="NOT ALLUSERS"
+                    {% endif -%}
                     Text="{{ option.title }}" />
                 <Control
                     Id="InstallOptionDescription_{{ name }}"
                     X="40" Y="{{ description_y }}" Width="290" Height="30"
                     Type="Text"
+                    {% if option.system == true -%}
+                    HideCondition="NOT ALLUSERS"
+                    ShowCondition="ALLUSERS"
+                    {% elif option.system == false -%}
+                    HideCondition="ALLUSERS"
+                    ShowCondition="NOT ALLUSERS"
+                    {% endif -%}
                     Text="{{ option.description }}" />
                 {% endfor %}
 
@@ -573,7 +604,7 @@
             <Dialog
                 Id="UninstallOptionsDlg"
                 Width="370" Height="270"
-                Title="Uninstall options"
+                Title="!(loc.CustomizeDlg_Title)"
                 TrackDiskSpace="no"
             >
 
@@ -589,7 +620,7 @@
                     X="15" Y="6" Width="210" Height="15"
                     Transparent="yes"
                     NoPrefix="yes"
-                    Text="!(loc.CustomizeDlgTitle)" />
+                    Text="{\WixUI_Font_Title}Customize Uninstall" />
                 <Control
                     Id="Description"
                     Type="Text"
@@ -608,11 +639,25 @@
                     Type="CheckBox"
                     Property="OPTION_{{ name.upper() }}"
                     CheckBoxValue="1"
+                    {% if option.system == true -%}
+                    HideCondition="NOT ALLUSERS"
+                    ShowCondition="ALLUSERS"
+                    {% elif option.system == false -%}
+                    HideCondition="ALLUSERS"
+                    ShowCondition="NOT ALLUSERS"
+                    {% endif -%}
                     Text="{{ option.title }}" />
                 <Control
                     Id="UninstallOptionDescription_{{ name }}"
                     X="40" Y="{{ description_y }}" Width="290" Height="30"
                     Type="Text"
+                    {% if option.system == true -%}
+                    HideCondition="NOT ALLUSERS"
+                    ShowCondition="ALLUSERS"
+                    {% elif option.system == false -%}
+                    HideCondition="ALLUSERS"
+                    ShowCondition="NOT ALLUSERS"
+                    {% endif -%}
                     Text="{{ option.description }}" />
                 {% endfor %}
 
@@ -929,6 +974,7 @@
                 Event="SpawnDialog"
                 Value="DiskCostDlg" />
 
+            {% if cookiecutter.create_desktop_shortcut != "" -%}
             <!-- Desktop shortcut -->
             <Publish
                 Dialog="CustomInstallDirDlg"
@@ -944,6 +990,7 @@
                 Condition='DESKTOP_SHORTCUT &lt;&gt; "1"'
                 Event="Remove"
                 Value="DesktopShortcutFeature" />
+            {%- endif %}
 
             <!-- Define the workflow through the uninstall dialogs.
 
@@ -1063,7 +1110,7 @@
         <SetProperty
             Id="PRE_UNINSTALL_CMD"
             Value="&quot;[SystemFolder]cmd.exe&quot;  /c &quot;&quot;[INSTALLFOLDER]{{ cookiecutter.installer_path }}\run_pre_uninstall.bat&quot; [INSTALL_UNATTENDED]{% for name in cookiecutter.uninstall_options %} [OPTION_{{ name.upper() }}]{% endfor %}&quot;"
-            After="CostFinalize"
+            After="InstallValidate"
             Sequence="execute"
             Condition='REMOVE="ALL"' />
 
